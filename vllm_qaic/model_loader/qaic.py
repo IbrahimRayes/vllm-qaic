@@ -5,6 +5,7 @@
 
 """Utilities for selecting and loading qaic models."""
 
+import copy
 import json
 import os
 import threading
@@ -1835,6 +1836,15 @@ def get_hf_model(
         # If tie_word_embeddings is not set correctly,
         # single QPC's output would be wrong
         hf_config.tie_word_embeddings = pretrained_hf_config.tie_word_embeddings
+        # vLLM re-tags quantization_config for its own kernels (gpt-oss "mxfp4" ->
+        # "gpt_oss_mxfp4"); use its pre-hook copy in model_arch_config. Not
+        # pretrained_hf_config: that drops vLLM's spelling fixes ("AWQ" -> "awq")
+        arch_quant_config = model_config.model_arch_config.quantization_config
+        if (
+            arch_quant_config is not None
+            and getattr(hf_config, "quantization_config", None) is not None
+        ):
+            hf_config.quantization_config = copy.deepcopy(arch_quant_config)
     override_qaic_config = (
         additional_config.get("override_qaic_config") if additional_config else None
     )
